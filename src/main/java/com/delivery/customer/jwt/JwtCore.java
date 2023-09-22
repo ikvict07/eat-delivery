@@ -49,4 +49,14 @@ public class JwtCore {
                 .getBody()
                 .getSubject();
     }
+
+    public String getKeyFromJwt(String jwt) {
+        return Jwts
+                .parserBuilder()
+                .setSigningKey(key)
+                .build()
+                .parseClaimsJws(jwt)
+                .getBody()
+                .getSubject();
+    }
 }

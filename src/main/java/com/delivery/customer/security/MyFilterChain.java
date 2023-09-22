@@ -13,10 +13,16 @@ import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
 
+import java.util.Arrays;
+import java.util.List;
+
 @Configuration
 public class MyFilterChain {
     @Value("${customer.security.login-url}")
     private String loginUrl;
+
+    @Value("${customer.authentication.domain}")
+    private String authenticationDomain;
 
     private TokenFilter tokenFilter;
 
@@ -30,8 +36,18 @@ public class MyFilterChain {
         http
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(httpSecurityCorsConfigurer ->
-                        httpSecurityCorsConfigurer.configurationSource(request ->
-                                new CorsConfiguration().applyPermitDefaultValues()))
+                        httpSecurityCorsConfigurer.configurationSource(request -> {
+                            CorsConfiguration config = new CorsConfiguration();
+                            if (request.getRequestURI().startsWith("/api/customer-db/")) {
+                                config.setAllowedOrigins(List.of(authenticationDomain));
+                                config.setAllowedMethods(Arrays.asList("GET", "POST")); // разрешенные методы
+                                config.setAllowedHeaders(Arrays.asList("*")); // разрешенные заголовки
+                                config.setAllowCredentials(false); // разрешить cookies
+                            } else {
+                                config.applyPermitDefaultValues(); // для остальных URL применяем значения по умолчанию
+                            }
+                            return config;
+                        }))
                 .exceptionHandling(exceptions -> exceptions
                         .authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
                 .sessionManagement(session -> session
