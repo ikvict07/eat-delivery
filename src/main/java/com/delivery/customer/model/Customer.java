@@ -19,6 +19,8 @@ public class Customer {
     private String email;
     private String phone;
 
+    private final String role = "CUSTOMER";
+
     @OneToMany(mappedBy = "customer", cascade = CascadeType.ALL)
     @JsonManagedReference
     private List<Order> orders;
