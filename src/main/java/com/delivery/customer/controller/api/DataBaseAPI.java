@@ -1,5 +1,6 @@
 package com.delivery.customer.controller.api;
 
+import com.delivery.customer.DTO.SignInRequest;
 import com.delivery.customer.jwt.JwtCore;
 import com.delivery.customer.model.Customer;
 import com.delivery.customer.repository.CustomerRepository;
@@ -7,15 +8,23 @@ import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Objects;
+import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/customer-db/")
 public class DataBaseAPI {
     private CustomerRepository customerRepository;
     private JwtCore jwtCore;
+    private PasswordEncoder passwordEncoder;
+
+    @Autowired
+    private void setPasswordEncoder(PasswordEncoder passwordEncoder) {
+        this.passwordEncoder = passwordEncoder;
+    }
 
     @Autowired
     private void setCustomerRepository(CustomerRepository customerRepository) {
@@ -34,23 +43,45 @@ public class DataBaseAPI {
 
     @PostMapping("/register-customer")
     public ResponseEntity<?> register(@RequestBody Customer customer, HttpServletRequest request) {
-        String jwt = resolveToken(request);
-        if (jwt == null) {
+        if (isRequestHavingPermission(request))
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("You don`t have permissions");
-        }
-        if (!(Objects.equals(jwtCore.getKeyFromJwt(jwt), "Allowed"))) {
+
+        Customer customerToRegister = new Customer();
+        customerToRegister.setEmail(customer.getEmail());
+        customerToRegister.setPassword(passwordEncoder.encode(customer.getPassword()));
+        customerToRegister.setName(customer.getName());
+        customerToRegister.setPhone(customer.getPhone());
+
+        customerRepository.save(customerToRegister);
+        return ResponseEntity.ok("Customer was registered");
+    }
+    @PostMapping("/login-customer")
+    private ResponseEntity<String> login(@RequestBody SignInRequest signInRequest, HttpServletRequest request) {
+        if (isRequestHavingPermission(request)) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("You don`t have permissions");
         }
 
-        customerRepository.save(customer);
-        return ResponseEntity.ok("Customer was registered");
+        Optional<Customer> optionalCustomer = customerRepository.findCustomerByEmail(signInRequest.getEmail());
+        if (optionalCustomer.isPresent() && passwordEncoder.matches(signInRequest.getPassword(), optionalCustomer.get().getPassword())) {
+            return ResponseEntity.ok().body("Success");
+        } else {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid username or password");
+        }
+    }
+
+    private boolean isRequestHavingPermission(HttpServletRequest request) {
+        String jwt = resolveToken(request);
+        if (jwt == null) {
+            return true;
+        }
+        return !(Objects.equals(jwtCore.getKeyFromJwt(jwt), "Allowed"));
     }
 
     private String resolveToken(HttpServletRequest request) {
         String bearerToken = request.getHeader("Authorization");
 
         if (bearerToken != null && bearerToken.startsWith("Bearer ")) {
-            return bearerToken.substring(7, bearerToken.length());
+            return bearerToken.substring(7);
         }
         return null;
     }
