@@ -57,13 +57,23 @@ public class DataBaseAPI {
     }
     @PostMapping("/login-customer")
     private ResponseEntity<String> login(@RequestBody SignInRequest signInRequest, HttpServletRequest request) {
-        if (isRequestHavingPermission(request)) {
+        if (!isRequestHavingPermission(request)) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("You don`t have permissions");
         }
+        String jwt = resolveToken(request);
+        if (jwt == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("You have to be authorized");
+        }
+
 
         Optional<Customer> optionalCustomer = customerRepository.findCustomerByEmail(signInRequest.getEmail());
         if (optionalCustomer.isPresent() && passwordEncoder.matches(signInRequest.getPassword(), optionalCustomer.get().getPassword())) {
-            return ResponseEntity.ok().body("Success");
+
+            if (optionalCustomer.get().getRole().equals("CUSTOMER")) {
+                return ResponseEntity.ok().body("Success");
+            } else {
+                return ResponseEntity.badRequest().body("Customer can not be logged in with another role");
+            }
         } else {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid username or password");
         }
@@ -72,9 +82,9 @@ public class DataBaseAPI {
     private boolean isRequestHavingPermission(HttpServletRequest request) {
         String jwt = resolveToken(request);
         if (jwt == null) {
-            return true;
+            return false;
         }
-        return !(Objects.equals(jwtCore.getKeyFromJwt(jwt), "Allowed"));
+        return (Objects.equals(jwtCore.getKeyFromJwt(jwt), "Allowed"));
     }
 
     private String resolveToken(HttpServletRequest request) {
