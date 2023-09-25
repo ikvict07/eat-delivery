@@ -54,6 +54,7 @@ public class MyFilterChain {
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(
                         authorize -> authorize
+                                .requestMatchers("/api/customer/**").fullyAuthenticated()
                                 .anyRequest().permitAll()
                 )
                 .addFilterBefore(tokenFilter, UsernamePasswordAuthenticationFilter.class);
