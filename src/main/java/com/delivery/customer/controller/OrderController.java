@@ -32,7 +32,7 @@ public class OrderController {
     private ResponseEntity<List<Order>> getListOfOrders(Principal principal) {
         Optional<Customer> optionalCustomer = customerRepository.findCustomerByEmail(principal.getName());
 
-        if (!optionalCustomer.isPresent()) {
+        if (optionalCustomer.isEmpty()) {
             return ResponseEntity.badRequest().body(new ArrayList<>());
         }
 
